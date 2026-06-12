@@ -5,20 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ランダムファイル・ダウローダー</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px; background: #f0f2f5; }
+        body { font-family: sans-serif; text-align: center; padding: 50px 20px; background: #f0f2f5; }
         .container { background: white; padding: 30px; border-radius: 10px; max-width: 500px; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        button { background: #007bff; color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 5px; cursor: pointer; transition: 0.2s; }
+        button { background: #007bff; color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 5px; cursor: pointer; transition: 0.2s; width: 100%; box-sizing: border-box; }
         button:hover { background: #0056b3; }
         button:disabled { background: #ccc; cursor: not-allowed; }
         #status { margin-top: 20px; font-weight: bold; color: #555; word-break: break-all; }
+        .dl-link { display: inline-block; margin-top: 20px; background: #28a745; color: white; text-decoration: none; padding: 15px 30px; font-size: 18px; border-radius: 5px; font-weight: bold; width: 100%; box-sizing: border-box; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>Internet Archive</h1>
-    <p>ボタンを押すと、ランダムなファイルが別タブで開くかダウンロードされます。</p>
-    <button id="randBtn" onclick="getRandomFile()">ランダムファイルをゲット</button>
+    <p>1. ボタンを押してファイルを検索します。</p>
+    <button id="randBtn" onclick="getRandomFile()">ランダムファイルを検索</button>
     <div id="status"></div>
 </div>
 
@@ -28,10 +30,10 @@ async function getRandomFile() {
     const status = document.getElementById('status');
     
     btn.disabled = true;
-    status.innerText = "アーカイブを探索中...";
+    status.innerHTML = "アーカイブを探索中...";
 
     try {
-        const randomPage = Math.floor(Math.random() * 5000) + 1;
+        const randomPage = Math.floor(Math.random() * 3000) + 1;
         const directApiUrl = `https://archive.org[]=identifier&rows=1&page=${randomPage}&output=json`;
         
         const response = await fetch(directApiUrl);
@@ -41,11 +43,12 @@ async function getRandomFile() {
             throw new Error("アイテムが見つかりませんでした。もう一度試してください。");
         }
 
-        const identifier = data.response.docs[0].identifier;
-        if (!identifier) {
+        const rawIdentifier = data.response.docs[0].identifier;
+        if (!rawIdentifier) {
             throw new Error("識別子の取得に失敗しました。");
         }
         
+        const identifier = encodeURIComponent(rawIdentifier.trim());
         const metaUrl = `https://archive.org{identifier}`;
         const metaResponse = await fetch(metaUrl);
         const metaData = await metaResponse.json();
@@ -54,18 +57,18 @@ async function getRandomFile() {
             throw new Error("ファイル一覧の取得に失敗しました。");
         }
 
-        const validFiles = metaData.files.filter(f => f.name && !f.name.endsWith('.xml') && !f.name.endsWith('.sqlite') && !f.name.endsWith('.torrent') && !f.name.endsWith('.json'));
+        const validFiles = metaData.files.filter(f => f.name && !f.name.endsWith('.xml') && !f.name.endsWith('.sqlite') && !f.name.endsWith('.torrent') && !f.name.endsWith('.json') && !f.name.includes('@'));
         
         if (validFiles.length === 0) {
-            throw new Error("ダウンロード可能なファイルが見つかりませんでした。");
+            throw new Error("ダウンロード可能なファイルが見つかりませんでした。もう一度お試しください。");
         }
         
         const randomFile = validFiles[Math.floor(Math.random() * validFiles.length)];
-        const downloadUrl = `https://archive.org{identifier}/${encodeURIComponent(randomFile.name)}`;
         
-        status.innerHTML = `成功！<br>ファイル名: ${randomFile.name}<br><a href="${downloadUrl}" target="_blank" rel="noopener noreferrer">自動で開かない場合はここをクリック</a>`;
+        const cleanFileName = randomFile.name.split('/').map(part => encodeURIComponent(part.trim())).join('/');
+        const downloadUrl = `https://archive.org{identifier}/${cleanFileName}`;
         
-        window.open(downloadUrl, '_blank');
+        status.innerHTML = `見つかりました！<br><span style="font-size:14px;color:#888;">${randomFile.name}</span><br><br><a href="${downloadUrl}" class="dl-link">2. ここをタップしてダウンロード</a>`;
 
     } catch (error) {
         status.innerText = "エラーが発生しました: " + error.message;
