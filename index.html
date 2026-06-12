@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ランダムファイル・ダウンローダー</title>
+    <title>ランダムファイル・ダウローダー</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 50px; background: #f0f2f5; }
         .container { background: white; padding: 30px; border-radius: 10px; max-width: 500px; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
@@ -31,36 +31,39 @@ async function getRandomFile() {
     status.innerText = "アーカイブを探索中...";
 
     try {
-        const randomPage = Math.floor(Math.random() * 10000) + 1;
+        const randomPage = Math.floor(Math.random() * 5000) + 1;
         const directApiUrl = `https://archive.org[]=identifier&rows=1&page=${randomPage}&output=json`;
         
         const response = await fetch(directApiUrl);
         const data = await response.json();
         
-        if (!data.response.docs || data.response.docs.length === 0) {
+        if (!data || !data.response || !data.response.docs || data.response.docs.length === 0) {
             throw new Error("アイテムが見つかりませんでした。もう一度試してください。");
         }
 
         const identifier = data.response.docs[0].identifier;
+        if (!identifier) {
+            throw new Error("識別子の取得に失敗しました。");
+        }
         
         const metaUrl = `https://archive.org{identifier}`;
         const metaResponse = await fetch(metaUrl);
         const metaData = await metaResponse.json();
         
-        if (!metaData.files || metaData.files.length === 0) {
+        if (!metaData || !metaData.files || metaData.files.length === 0) {
             throw new Error("ファイル一覧の取得に失敗しました。");
         }
 
-        const validFiles = metaData.files.filter(f => !f.name.endsWith('.xml') && !f.name.endsWith('.sqlite') && !f.name.endsWith('.torrent'));
+        const validFiles = metaData.files.filter(f => f.name && !f.name.endsWith('.xml') && !f.name.endsWith('.sqlite') && !f.name.endsWith('.torrent') && !f.name.endsWith('.json'));
         
         if (validFiles.length === 0) {
             throw new Error("ダウンロード可能なファイルが見つかりませんでした。");
         }
         
         const randomFile = validFiles[Math.floor(Math.random() * validFiles.length)];
-        const downloadUrl = `https://archive.org{identifier}/${randomFile.name}`;
+        const downloadUrl = `https://archive.org{identifier}/${encodeURIComponent(randomFile.name)}`;
         
-        status.innerHTML = `成功！<br>ファイル名: ${randomFile.name}<br><a href="${downloadUrl}" target="_blank">自動で開かない場合はここをクリック</a>`;
+        status.innerHTML = `成功！<br>ファイル名: ${randomFile.name}<br><a href="${downloadUrl}" target="_blank" rel="noopener noreferrer">自動で開かない場合はここをクリック</a>`;
         
         window.open(downloadUrl, '_blank');
 
